@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Login – CodeCrafted Payroll{% endblock %}
+
+{% block auth_content %}
+<div class="login-page">
+  <div class="login-card">
+    <div class="text-center">
+      <div class="login-logo mx-auto">
+        <i class="bi bi-box-seam-fill"></i>
+      </div>
+      <h1 class="login-title">CodeCrafted</h1>
+      <p class="login-sub">Employee Payroll Management System</p>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} border-0 rounded-3 mb-3" role="alert">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <div class="position-relative">
+          <i class="bi bi-person" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:16px;"></i>
+          {{ form.username }}
+        </div>
+        {% if form.username.errors %}
+          <div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>
+        {% endif %}
+      </div>
+      <div class="mb-4">
+        <label class="form-label">Password</label>
+        <div class="position-relative">
+          <i class="bi bi-lock" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:16px;"></i>
+          {{ form.password }}
+        </div>
+        {% if form.password.errors %}
+          <div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>
+        {% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary btn-login">
+        <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+      </button>
+    </form>
+
+    <div class="text-center mt-4" style="font-size:12px;color:#94a3b8;">
+      <i class="bi bi-shield-lock me-1"></i>Secure login · Packaging Division
+    </div>
+  </div>
+</div>
+
+<style>
+.login-page .form-control { padding-left: 42px !important; }
+</style>
+{% endblock %}

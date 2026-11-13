@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0 fw-bold">Advance Payments</h3>
+    <a href="{% url 'advance_add' %}" class="btn btn-primary shadow-sm"><i class="bi bi-cash"></i> Give Advance</a>
+</div>
+
+<div class="card content-card mb-4">
+    <div class="card-body p-0">
+        {% if page_obj %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Date</th>
+                        <th>Employee</th>
+                        <th>Amount</th>
+                        <th>Given By</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for adv in page_obj %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ adv.date|date:"D, d M Y" }}</td>
+                        <td>
+                            <div class="fw-bold">{{ adv.employee.name }}</div>
+                            <div class="text-muted small">{{ adv.employee.emp_id }}</div>
+                        </td>
+                        <td class="fw-bold text-danger">₹{{ adv.amount|floatformat:0 }}</td>
+                        <td class="text-muted small">{{ adv.given_by.username|default:"-" }}</td>
+                        <td class="text-end pe-4">
+                            {% if adv.is_salary_paid %}
+                            <span class="badge bg-success text-uppercase small" style="font-size: 0.7rem;">Paid (Locked)</span>
+                            {% else %}
+                            <a href="{% url 'advance_delete' adv.id %}" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 d-flex justify-content-center border-top">
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-cash-stack display-1 text-light mb-3"></i>
+            <h5 class="fw-bold">No Records Found</h5>
+            <p>No advance payments have been recorded yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Monthly Work Hours History{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h3 class="mb-1 fw-bold text-dark">Monthly Work Hours History</h3>
+        <p class="text-muted small mb-0">Saved records and audit log for {{ month_name }} {{ selected_year }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'workhours_mark' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-pencil-square me-1"></i> Edit Monthly Hours
+        </a>
+        <a href="{% url 'workhours_view' %}" class="btn btn-outline-secondary shadow-sm">
+            <i class="bi bi-calendar3 me-1"></i> Daily Attendance Records
+        </a>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="card content-card mb-4 border-0 shadow-sm">
+    <div class="card-body p-4 bg-white rounded-3">
+        <form method="get" class="row g-3 align-items-end" id="historyFilterForm">
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold text-uppercase">Month</label>
+                <select name="month" class="form-select" onchange="document.getElementById('historyFilterForm').submit()">
+                    {% for m_num, m_name in month_names %}
+                    <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold text-uppercase">Year</label>
+                <select name="year" class="form-select" onchange="document.getElementById('historyFilterForm').submit()">
+                    {% for yr in year_choices %}
+                    <option value="{{ yr }}" {% if selected_year == yr %}selected{% endif %}>{{ yr }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-bold text-uppercase">Search Employee</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Filter by name, ID, or designation..." value="{{ query }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- History Table Card -->
+<div class="card content-card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+        <span class="fw-bold text-dark">
+            <i class="bi bi-clock-history text-primary me-2"></i>Saved Monthly Records ({{ total_count }})
+        </span>
+        <span class="badge bg-primary px-3 py-2">{{ month_name }} {{ selected_year }}</span>
+    </div>
+
+    <div class="card-body p-0">
+        {% if records %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4" style="width: 60px;">#</th>
+                        <th>Employee</th>
+                        <th>Employee ID</th>
+                        <th>Designation</th>
+                        <th class="text-end">Total Hours</th>
+                        <th>Salary Status</th>
+                        <th>Last Updated</th>
+                        <th class="pe-4">Updated By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in records %}
+                    <tr>
+                        <td class="ps-4 text-muted fw-semibold">{{ forloop.counter }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-3">{{ item.record.employee.name|make_list|first }}</div>
+                                <div>
+                                    <a href="{% url 'employee_detail' item.record.employee.id %}" class="fw-bold text-dark text-decoration-none">
+                                        {{ item.record.employee.name }}
+                                    </a>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border font-monospace px-2 py-1">{{ item.record.employee.emp_id }}</span>
+                        </td>
+                        <td class="text-muted small">{{ item.record.employee.designation }}</td>
+                        <td class="text-end fw-bold text-primary fs-6">
+                            {{ item.record.total_hours|floatformat:2 }} hrs
+                        </td>
+                        <td>
+                            {% if item.is_salary_paid %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i> Paid</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i> Unpaid</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            <i class="bi bi-calendar-event me-1"></i>{{ item.record.updated_at|date:"d M Y, h:i A" }}
+                        </td>
+                        <td class="pe-4 text-muted small">
+                            <i class="bi bi-person me-1"></i>{{ item.record.marked_by.username|default:"System" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Summary Bar -->
+        <div class="p-4 bg-light border-top d-flex justify-content-between align-items-center">
+            <span class="text-muted small">Total Recorded for {{ month_name }} {{ selected_year }}: <strong>{{ total_count }}</strong> employees</span>
+            <div>
+                <span class="text-muted text-uppercase small fw-bold me-2">Grand Total Hours:</span>
+                <span class="fs-4 fw-bold text-primary">{{ total_hours|floatformat:2 }} hrs</span>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-clock-history display-1 text-light mb-3"></i>
+            <h5 class="fw-bold">No Monthly Work Hours Saved</h5>
+            <p class="mb-3">No monthly bulk records have been saved yet for {{ month_name }} {{ selected_year }}.</p>
+            <a href="{% url 'workhours_mark' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i> Enter Monthly Hours
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

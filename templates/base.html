@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}CodeCrafted Payroll{% endblock %}</title>
+  <meta name="description" content="CodeCrafted Packaging - Employee Payroll Management System" />
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Custom CSS -->
+  <link href="/static/css/style.css" rel="stylesheet" />
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<!-- ── SIDEBAR ─────────────────────────────────── -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">
+      <i class="bi bi-box-seam-fill"></i>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name">CodeCrafted</span>
+      <span class="brand-sub">Payroll System</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">MAIN MENU</div>
+    <a href="{% url 'dashboard' %}" class="nav-link-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="{% url 'employee_list' %}" class="nav-link-item {% if 'employee' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-people-fill"></i>
+      <span>Employees</span>
+    </a>
+    <a href="{% url 'workhours_mark' %}" class="nav-link-item {% if 'workhours' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-clock-history"></i>
+      <span>Work Hours</span>
+    </a>
+    <a href="{% url 'advance_list' %}" class="nav-link-item {% if 'advance' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cash-stack"></i>
+      <span>Advance</span>
+    </a>
+    <a href="{% url 'salary_list' %}" class="nav-link-item {% if 'salary' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cash-coin"></i>
+      <span>Salary</span>
+    </a>
+    <a href="{% url 'reports' %}" class="nav-link-item {% if 'report' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-bar-chart-fill"></i>
+      <span>Reports</span>
+    </a>
+
+    {% if user.is_superuser %}
+    <div class="nav-section-title mt-3">ADMIN</div>
+    <a href="{% url 'manager_list' %}" class="nav-link-item {% if 'manager' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-person-badge-fill"></i>
+      <span>Managers</span>
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="user-avatar">{{ user.username|first|upper }}</div>
+      <div class="user-details">
+        <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+        <span class="user-role">{% if user.is_superuser %}Admin{% elif user.is_staff %}Manager{% else %}Employee{% endif %}</span>
+      </div>
+    </div>
+    <a href="{% url 'logout' %}" class="btn-logout" title="Logout">
+      <i class="bi bi-box-arrow-right"></i>
+    </a>
+  </div>
+</div>
+
+<!-- ── MAIN CONTENT ────────────────────────────── -->
+<div class="main-content" id="mainContent">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <button class="btn-toggle-sidebar" id="sidebarToggle" title="Toggle Sidebar">
+      <i class="bi bi-list"></i>
+    </button>
+    <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+    <div class="topbar-right">
+      <span class="badge-role {% if user.is_superuser %}role-admin{% elif user.is_staff %}role-manager{% else %}role-employee{% endif %}">
+        <i class="bi bi-person-circle me-1"></i>
+        {% if user.is_superuser %}Admin{% elif user.is_staff %}Manager{% else %}Employee{% endif %}
+      </span>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  {% if messages %}
+  <div class="messages-container px-4 pt-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm border-0" role="alert">
+      <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif message.tags == 'danger' %}x-circle-fill{% elif message.tags == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Page Content -->
+  <div class="page-content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/main.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

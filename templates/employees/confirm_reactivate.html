@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Reactivate Employee – CodeCrafted Payroll{% endblock %}
+{% block page_title %}Reactivate Employee{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-5">
+    <div class="card border-success">
+      <div class="card-header text-success fw-700">
+        <i class="bi bi-check-circle-fill me-2"></i>Confirm Reactivation
+      </div>
+      <div class="card-body p-4 text-center">
+        <div style="font-size:60px;opacity:.3;" class="text-success mb-3"><i class="bi bi-person-check-fill"></i></div>
+        <h5 class="fw-700">{{ employee.name }}</h5>
+        <p class="text-muted mb-1">{{ employee.emp_id }} · {{ employee.designation }}</p>
+        <p class="text-muted small mt-3">This will reactivate the employee. They will reappear in Attendance, Work Hours, Payroll, and Advance entry modules. All of their existing history will remain unchanged.</p>
+        <form method="post" class="d-flex gap-2 justify-content-center mt-4">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-person-check me-1"></i>Yes, Reactivate</button>
+          <a href="{% url 'employee_list' %}" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

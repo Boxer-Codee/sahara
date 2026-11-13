@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card content-card">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0 fw-bold">{{ title }}</h4>
+                    <a href="{% url 'employee_list' %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-4 text-center">
+                        <div class="position-relative d-inline-block mb-2">
+                            {% if form.instance.photo and form.instance.photo.name %}
+                                <img id="photo-preview" src="{{ form.instance.photo.url }}" alt="Profile Photo" class="rounded-circle object-fit-cover shadow-sm border border-3 border-white" style="width: 120px; height: 120px;">
+                            {% else %}
+                                <img id="photo-preview" src="" alt="Profile Photo Preview" class="rounded-circle object-fit-cover shadow-sm border border-3 border-white d-none" style="width: 120px; height: 120px;">
+                                <div id="photo-placeholder" class="rounded-circle bg-light d-flex align-items-center justify-content-center text-muted border border-3 border-white shadow-sm" style="width: 120px; height: 120px; font-size: 3rem;">
+                                    <i class="bi bi-person"></i>
+                                </div>
+                            {% endif %}
+                            <label for="id_photo" class="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle p-2 shadow" style="cursor: pointer; line-height: 1;">
+                                <i class="bi bi-camera-fill"></i>
+                            </label>
+                        </div>
+                        <div class="d-none">
+                            {{ form.photo }}
+                        </div>
+                        <div class="small text-muted mt-1">Accepts JPG, PNG, WebP up to 250KB</div>
+                        {% if form.photo.errors %}<div class="text-danger small mt-1">{{ form.photo.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Full Name <span
+                                    class="text-danger">*</span></label>
+                            {{ form.name }}
+                            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Phone <span
+                                    class="text-danger">*</span></label>
+                            {{ form.phone }}
+                            {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Address <span
+                                class="text-danger">*</span></label>
+                        {{ form.address }}
+                        {% if form.address.errors %}<div class="text-danger small mt-1">{{ form.address.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Designation <span
+                                    class="text-danger">*</span></label>
+                            {{ form.designation }}
+                            {% if form.designation.errors %}<div class="text-danger small mt-1">{{ form.designation.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Joining Date <span
+                                    class="text-danger">*</span></label>
+                            {{ form.joining_date }}
+                            {% if form.joining_date.errors %}<div class="text-danger small mt-1">{{ form.joining_date.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Monthly Salary (₹) <span
+                                    class="text-danger">*</span></label>
+                            {{ form.monthly_salary }}
+                            {% if form.monthly_salary.errors %}<div class="text-danger small mt-1">{{ form.monthly_salary.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Daily Rate (₹)</label>
+                            {{ form.daily_rate }}
+                            <div class="form-text small">Calculated as Salary / 26</div>
+                            {% if form.daily_rate.errors %}<div class="text-danger small mt-1">{{ form.daily_rate.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Hourly Rate (₹)</label>
+                            {{ form.hourly_rate }}
+                            <div class="form-text small">Calculated as Daily / 12</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            {{ form.is_active }}
+                            <label class="form-check-label ms-2" for="{{ form.is_active.id_for_label }}">Account
+                                Active</label>
+                        </div>
+                    </div>
+
+                    <hr class="border-light mb-4">
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm">Save Employee</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const monthlySalaryInput = document.getElementById('id_monthly_salary');
+        const dailyRateInput = document.getElementById('id_daily_rate');
+        const hourlyRateInput = document.getElementById('id_hourly_rate');
+        const photoInput = document.getElementById('id_photo');
+        const photoPreview = document.getElementById('photo-preview');
+        const photoPlaceholder = document.getElementById('photo-placeholder');
+
+        if (photoInput) {
+            photoInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    if (file.size > 250 * 1024) {
+                        alert('File size exceeds 250KB limit.');
+                        photoInput.value = '';
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        photoPreview.src = e.target.result;
+                        photoPreview.classList.remove('d-none');
+                        if (photoPlaceholder) {
+                            photoPlaceholder.classList.add('d-none');
+                        }
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        function calculateRates() {
+            const monthlySalary = parseFloat(monthlySalaryInput.value) || 0;
+            if (monthlySalary > 0) {
+                const dailyRate = monthlySalary / 26;
+                const hourlyRate = dailyRate / 12;
+                dailyRateInput.value = dailyRate.toFixed(2);
+                hourlyRateInput.value = hourlyRate.toFixed(2);
+            } else {
+                dailyRateInput.value = '0.00';
+                hourlyRateInput.value = '0.00';
+            }
+        }
+
+        // Initial calculation on page load
+        calculateRates();
+
+        // Recalculate on input change
+        monthlySalaryInput.addEventListener('input', calculateRates);
+    });
+</script>
+{% endblock %}

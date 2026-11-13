@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card content-card border-danger border-top border-3 mt-4">
+            <div class="card-body p-5 text-center">
+                <div class="mb-4">
+                    <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="bi bi-exclamation-triangle display-5"></i>
+                    </div>
+                </div>
+                
+                <h3 class="fw-bold mb-3">Delete Work Hours Record?</h3>
+                <p class="text-muted mb-4">
+                    Are you sure you want to delete the record for <strong>{{ record.employee.name }}</strong> on <strong>{{ record.date|date:"D, d M Y" }}</strong>?<br>
+                    <small class="text-danger fw-bold d-block mt-2">This will automatically recalculate their monthly salary.</small>
+                </p>
+
+                <form method="post" class="d-flex justify-content-center gap-3">
+                    {% csrf_token %}
+                    <a href="{% url 'workhours_view' %}" class="btn btn-light px-4">Cancel</a>
+                    <button type="submit" class="btn btn-danger px-4 shadow-sm">Yes, Delete Record</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

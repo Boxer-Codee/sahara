@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="mb-1 fw-bold">Daily Work Hours Records</h3>
+        <p class="text-muted small mb-0">Historical daily attendance and individual work hours</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'workhours_mark' %}" class="btn btn-primary shadow-sm"><i class="bi bi-calendar2-month me-1"></i> Monthly Work Hours</a>
+        <a href="{% url 'workhours_history' %}" class="btn btn-outline-primary shadow-sm"><i class="bi bi-clock-history me-1"></i> Monthly History</a>
+    </div>
+</div>
+
+<div class="card content-card mb-4">
+    <div class="card-header bg-white pt-4 pb-3">
+        <form method="get" class="row g-3 align-items-end" id="filter-form">
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold text-uppercase">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ filter_date }}" onchange="document.getElementById('filter-form').submit()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-bold text-uppercase">Employee</label>
+                <select name="employee" class="form-select" onchange="document.getElementById('filter-form').submit()">
+                    <option value="">All Employees</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}" {% if filter_employee|stringformat:"s" == emp.id|stringformat:"s" %}selected{% endif %}>
+                        {{ emp.name }} ({{ emp.emp_id }}){% if not emp.is_active %} (Inactive){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'workhours_view' %}" class="btn btn-light w-100">Clear Filters</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if page_obj %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Date</th>
+                        <th>Employee</th>
+                        <th>Hours</th>
+                        <th>Marked By</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in page_obj %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ record.date|date:"D, d M Y" }}</td>
+                        <td>
+                            <div class="fw-bold">{{ record.employee.name }}</div>
+                            <div class="text-muted small">{{ record.employee.emp_id }}</div>
+                        </td>
+                        <td>
+                            <span class="badge {% if record.hours_worked > 12 %}bg-warning text-dark{% else %}bg-success{% endif %} rounded-pill px-3">
+                                {{ record.hours_worked }} hrs
+                            </span>
+                        </td>
+                        <td class="text-muted small">
+                            {{ record.marked_by.username|default:"-" }}
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if record.is_salary_paid %}
+                            <span class="badge bg-success text-uppercase small" style="font-size: 0.7rem;">Paid (Locked)</span>
+                            {% else %}
+                            <a href="{% url 'workhours_edit' record.id %}" class="btn btn-sm btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'workhours_delete' record.id %}" class="btn btn-sm btn-outline-danger ms-1" title="Delete"><i class="bi bi-trash"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="bg-light p-3 border-top d-flex justify-content-end align-items-center">
+            <span class="text-muted text-uppercase small fw-bold me-3">Total Hours for Selected Period:</span>
+            <span class="fs-4 fw-bold text-primary">{{ total_hours|floatformat:0 }} hrs</span>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 d-flex justify-content-center border-top">
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&date={{ filter_date }}&employee={{ filter_employee }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&date={{ filter_date }}&employee={{ filter_employee }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-clock-history display-1 text-light mb-3"></i>
+            <h5 class="fw-bold">No Records Found</h5>
+            <p>No work hours found for the selected criteria.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

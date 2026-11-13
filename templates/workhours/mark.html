@@ -1,0 +1,701 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Mark Work Hours{% endblock %}
+
+{% block content %}
+<!-- Top Header & Breadcrumb -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h3 class="mb-1 fw-bold text-dark">Mark Work Hours</h3>
+        <p class="text-muted small mb-0">Monthly Bulk Work Hours Management for {{ month_name }} {{ selected_year }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'workhours_history' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-outline-primary shadow-sm">
+            <i class="bi bi-clock-history me-1"></i> View Monthly History
+        </a>
+    </div>
+</div>
+
+<!-- CSRF Form for AJAX Token Extraction -->
+<form id="csrfForm" style="display:none;">{% csrf_token %}</form>
+
+<!-- Alert Container for AJAX and Validation Messages -->
+<div id="ajaxAlertContainer"></div>
+
+<!-- Filter Card -->
+<div class="card content-card mb-4 border-0 shadow-sm">
+    <div class="card-body p-4 bg-white rounded-3">
+        <form method="get" class="row g-3 align-items-end" id="filterForm">
+            <div class="col-lg-2 col-md-4 col-sm-6">
+                <label class="form-label text-muted small fw-bold text-uppercase">Month</label>
+                <select name="month" id="filterMonth" class="form-select">
+                    {% for m_num, m_name in month_names %}
+                    <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6">
+                <label class="form-label text-muted small fw-bold text-uppercase">Year</label>
+                <select name="year" id="filterYear" class="form-select">
+                    {% for yr in year_choices %}
+                    <option value="{{ yr }}" {% if selected_year == yr %}selected{% endif %}>{{ yr }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <label class="form-label text-muted small fw-bold text-uppercase">Department / Role</label>
+                <select name="department" id="filterDepartment" class="form-select">
+                    <option value="">All Departments / Roles</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if selected_department == dept %}selected{% endif %}>{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-8 col-sm-6">
+                <label class="form-label text-muted small fw-bold text-uppercase">Search Employee</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" id="employeeSearchInput" class="form-control border-start-0" placeholder="Filter by name or ID..." value="{{ query }}">
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-12">
+                <button type="submit" class="btn btn-primary w-100 shadow-sm">
+                    <i class="bi bi-arrow-repeat me-1"></i> Load Employees
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Action Bar & Employee Table Card -->
+<div class="card content-card mb-4 border-0 shadow-sm">
+    <!-- Action Toolbar Header -->
+    <div class="card-header bg-white p-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary action-bar-btn" id="btnApplySelected" title="Apply common hours to selected employees">
+                <i class="bi bi-check2-square"></i> Apply to Selected Employees
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary action-bar-btn" id="btnApplyAll" title="Apply common hours to all employees">
+                <i class="bi bi-people-fill"></i> Apply to All Employees
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-warning action-bar-btn" id="btnClear" title="Reset unsaved modifications">
+                <i class="bi bi-arrow-counterclockwise"></i> Clear
+            </button>
+        </div>
+        <div>
+            <button type="button" class="btn btn-success action-bar-btn px-4 shadow-sm" id="btnSaveMonthlyHours">
+                <span class="spinner-border spinner-border-sm me-1 d-none" id="saveSpinner" role="status" aria-hidden="true"></span>
+                <i class="bi bi-check-circle-fill me-1" id="saveIcon"></i> Save Monthly Hours
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Filter Feedback & Selection Counter -->
+    <div class="bg-light px-4 py-2 border-bottom d-flex justify-content-between align-items-center small text-muted">
+        <div>
+            <span>Loaded: <strong class="text-dark">{{ total_employees }}</strong> employee(s) for <strong>{{ month_name }} {{ selected_year }}</strong></span>
+            <span id="filterCountBadge" class="ms-2 d-none badge bg-primary">Showing <span id="visibleCount">{{ total_employees }}</span> matching</span>
+        </div>
+        <div>
+            <span id="selectedCountBadge" class="badge bg-secondary">0 selected</span>
+        </div>
+    </div>
+
+    <!-- Employee Table -->
+    <div class="card-body p-0">
+        {% if hours_data %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="employeeHoursTable">
+                <thead class="table-light text-muted small text-uppercase">
+                    <tr>
+                        <th style="width: 48px;" class="ps-4">
+                            <input type="checkbox" class="table-checkbox" id="selectAllCheckbox" title="Select / Deselect all visible">
+                        </th>
+                        <th style="width: 60px;">#</th>
+                        <th>Employee Name</th>
+                        <th style="width: 160px;">Employee ID</th>
+                        <th style="width: 200px;" class="text-end pe-4">Total Hours</th>
+                    </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                    {% for item in hours_data %}
+                    <tr class="employee-row" data-emp-id="{{ item.employee.id }}" data-emp-name="{{ item.employee.name|lower }}" data-emp-code="{{ item.employee.emp_id|lower }}" data-designation="{{ item.employee.designation|lower }}">
+                        <td class="ps-4">
+                            <input type="checkbox" class="table-checkbox row-checkbox" data-emp-id="{{ item.employee.id }}" {% if item.is_salary_paid %}disabled title="Salary already paid for this month"{% endif %}>
+                        </td>
+                        <td class="row-num-cell text-muted fw-semibold">{{ forloop.counter }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-3">{{ item.employee.name|make_list|first }}</div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ item.employee.name }}</div>
+                                    <div class="text-muted small">
+                                        {{ item.employee.designation }}
+                                        {% if not item.employee.is_active %}<span class="badge bg-danger ms-1" style="font-size: 0.65rem;">Inactive</span>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border font-monospace px-2 py-1">{{ item.employee.emp_id }}</span>
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if item.is_salary_paid %}
+                            <div class="d-inline-flex align-items-center justify-content-end">
+                                <span class="badge bg-success me-2 py-2 px-3" title="Salary marked as paid. Hours are locked.">
+                                    <i class="bi bi-lock-fill me-1"></i> Paid (Locked)
+                                </span>
+                                <input type="number" class="form-control hour-input text-end bg-light text-muted border" value="{{ item.hours_display }}" disabled style="max-width: 100px;">
+                            </div>
+                            {% else %}
+                            <div class="d-inline-flex flex-column align-items-end">
+                                <div class="input-group input-group-sm" style="max-width: 140px;">
+                                    <input type="number"
+                                           step="any"
+                                           min="0"
+                                           max="744"
+                                           class="form-control hour-input text-end fw-bold"
+                                           id="input_hours_{{ item.employee.id }}"
+                                           data-emp-id="{{ item.employee.id }}"
+                                           data-emp-name="{{ item.employee.name }}"
+                                           data-initial="{{ item.hours_display }}"
+                                           value="{{ item.hours_display }}"
+                                           placeholder="0"
+                                           autocomplete="off">
+                                    <span class="input-group-text bg-light text-muted small">hrs</span>
+                                </div>
+                                <div class="invalid-feedback text-end small" id="err_{{ item.employee.id }}">Valid hours (0-744)</div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Monthly Summary Bottom Card -->
+        <div class="p-4 bg-light border-top">
+            <div class="monthly-summary-card d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-calendar2-month-fill text-primary fs-4 me-2"></i>
+                        <span class="fs-5 fw-bold text-dark">Total Monthly Hours</span>
+                        <span class="badge bg-primary ms-2 px-2 py-1">{{ month_name }} {{ selected_year }}</span>
+                    </div>
+                    <div class="text-muted small">
+                        Grand total calculated across all <span id="summaryTotalEmployees">{{ total_employees }}</span> employees in the loaded monthly dataset.
+                    </div>
+                </div>
+                <div class="text-end">
+                    <div class="text-muted small text-uppercase fw-bold letter-spacing-1">Sum of Monthly Hours</div>
+                    <div class="fs-2 fw-bolder text-primary" id="grandTotalDisplay">
+                        {{ grand_total_hours|floatformat:2 }} hrs
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-people display-1 text-light mb-3"></i>
+            <h5 class="fw-bold">No Employees Found</h5>
+            <p class="mb-3">No eligible employees found for {{ month_name }} {{ selected_year }} with the selected filters.</p>
+            <a href="{% url 'workhours_mark' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-outline-secondary btn-sm">Clear Filter</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── MODAL: Apply to Selected Employees ──────────────────────── -->
+<div class="modal fade" id="applySelectedModal" tabindex="-1" aria-labelledby="applySelectedModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="applySelectedModalLabel">
+                    <i class="bi bi-check2-square text-primary me-2"></i>Apply Hours to Selected Employees
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-3 text-muted">
+                    You have selected <strong id="modalSelectedCount" class="text-primary">0</strong> employee(s).
+                    Specify the total work hours to apply to all of them for <strong>{{ month_name }} {{ selected_year }}</strong>.
+                </p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Total Work Hours (0 - 744)</label>
+                    <div class="input-group">
+                        <input type="number" step="any" min="0" max="744" class="form-control form-control-lg" id="modalSelectedHoursInput" placeholder="e.g. 240, 264">
+                        <span class="input-group-text">hours</span>
+                    </div>
+                    <div class="form-text">Common monthly totals: 240 hrs (20 days × 12h), 264 hrs (22 days × 12h), 288 hrs (24 days × 12h), 312 hrs (26 days × 12h).</div>
+                    <div class="invalid-feedback d-none" id="modalSelectedError">Please enter a valid number of hours between 0 and 744.</div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary px-4 fw-bold" id="modalConfirmApplySelected">Apply to Selected</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: Apply to All Employees ──────────────────────────── -->
+<div class="modal fade" id="applyAllModal" tabindex="-1" aria-labelledby="applyAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-dark" id="applyAllModalLabel">
+                    <i class="bi bi-people-fill text-primary me-2"></i>Apply Hours to All Employees
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-warning border-0 d-flex align-items-center mb-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-warning"></i>
+                    <div>
+                        <strong>Confirmation Required:</strong> This action will update work hours for <strong>all permitted unlocked employees</strong> in <strong>{{ month_name }} {{ selected_year }}</strong> ({{ total_employees }} total).
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Total Work Hours to Apply (0 - 744)</label>
+                    <div class="input-group">
+                        <input type="number" step="any" min="0" max="744" class="form-control form-control-lg" id="modalAllHoursInput" placeholder="e.g. 240, 264">
+                        <span class="input-group-text">hours</span>
+                    </div>
+                    <div class="form-text">Locked records with paid salaries will remain untouched.</div>
+                    <div class="invalid-feedback d-none" id="modalAllError">Please enter a valid number between 0 and 744.</div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary px-4 fw-bold" id="modalConfirmApplyAll">Confirm & Apply to All</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: Clear Confirmation ──────────────────────────────── -->
+<div class="modal fade" id="clearConfirmModal" tabindex="-1" aria-labelledby="clearConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-dark" id="clearConfirmModalLabel">
+                    <i class="bi bi-arrow-counterclockwise text-warning me-2"></i>Reset Unsaved Edits?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-2">Are you sure you want to discard unsaved edits and reset all employee inputs back to their saved state?</p>
+                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Previously saved database records will not be deleted.</p>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning px-4 fw-bold" id="modalConfirmClear">Yes, Reset Inputs</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tableBody = document.getElementById('employeeTableBody');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    const hourInputs = document.querySelectorAll('.hour-input:not([disabled])');
+    const selectedCountBadge = document.getElementById('selectedCountBadge');
+    const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+    const searchInput = document.getElementById('employeeSearchInput');
+    const filterCountBadge = document.getElementById('filterCountBadge');
+    const visibleCountSpan = document.getElementById('visibleCount');
+    const ajaxAlertContainer = document.getElementById('ajaxAlertContainer');
+
+    // Modals
+    const applySelectedModal = new bootstrap.Modal(document.getElementById('applySelectedModal'));
+    const applyAllModal = new bootstrap.Modal(document.getElementById('applyAllModal'));
+    const clearConfirmModal = new bootstrap.Modal(document.getElementById('clearConfirmModal'));
+
+    // Buttons
+    const btnApplySelected = document.getElementById('btnApplySelected');
+    const btnApplyAll = document.getElementById('btnApplyAll');
+    const btnClear = document.getElementById('btnClear');
+    const btnSaveMonthlyHours = document.getElementById('btnSaveMonthlyHours');
+    const saveSpinner = document.getElementById('saveSpinner');
+    const saveIcon = document.getElementById('saveIcon');
+
+    // CSRF Token Helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function getCsrfToken() {
+        const input = document.querySelector('#csrfForm input[name="csrfmiddlewaretoken"]') ||
+                      document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (input && input.value) {
+            return input.value;
+        }
+        return getCookie('csrftoken') || '';
+    }
+
+    // Show Alert Banner
+    function showAlert(type, message) {
+        ajaxAlertContainer.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
+                <i class="bi bi-${type === 'success' ? 'check-circle-fill' : type === 'danger' ? 'x-circle-fill' : 'exclamation-triangle-fill'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        ajaxAlertContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ─────────────────────────────────────────────
+    // GRAND TOTAL RECALCULATION
+    // ─────────────────────────────────────────────
+    function recalculateGrandTotal() {
+        let sum = 0;
+        // Sum across ALL inputs in the loaded dataset, regardless of filter visibility
+        document.querySelectorAll('.hour-input').forEach(function(input) {
+            const val = parseFloat(input.value);
+            if (!isNaN(val) && val > 0) {
+                sum += val;
+            }
+        });
+        grandTotalDisplay.textContent = sum.toFixed(2).replace(/\.?0+$/, '') + ' hrs';
+    }
+
+    // Listen for manual inputs
+    hourInputs.forEach(function(input) {
+        input.addEventListener('input', function() {
+            const initial = this.getAttribute('data-initial') || '';
+            const current = this.value.trim();
+
+            // Validate
+            const val = parseFloat(current);
+            if (current !== '' && (isNaN(val) || val < 0 || val > 744)) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+
+            if (current !== initial) {
+                this.classList.add('is-modified');
+            } else {
+                this.classList.remove('is-modified');
+            }
+            recalculateGrandTotal();
+        });
+    });
+
+    // ─────────────────────────────────────────────
+    // CHECKBOX SELECTION
+    // ─────────────────────────────────────────────
+    function updateSelectedCount() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        const count = checked.length;
+        selectedCountBadge.textContent = count + ' selected';
+        if (count > 0) {
+            selectedCountBadge.className = 'badge bg-primary px-2 py-1';
+        } else {
+            selectedCountBadge.className = 'badge bg-secondary px-2 py-1';
+        }
+    }
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            document.querySelectorAll('.employee-row').forEach(function(row) {
+                if (row.style.display !== 'none') {
+                    const cb = row.querySelector('.row-checkbox');
+                    if (cb && !cb.disabled) {
+                        cb.checked = isChecked;
+                    }
+                }
+            });
+            updateSelectedCount();
+        });
+    }
+
+    rowCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            updateSelectedCount();
+            // Update selectAllCheckbox status
+            const visibleCbs = Array.from(document.querySelectorAll('.employee-row:not([style*="display: none"]) .row-checkbox:not(:disabled)'));
+            if (visibleCbs.length > 0) {
+                selectAllCheckbox.checked = visibleCbs.every(c => c.checked);
+            }
+        });
+    });
+
+    // ─────────────────────────────────────────────
+    // SEARCH & REAL-TIME FILTERING
+    // ─────────────────────────────────────────────
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            const rows = document.querySelectorAll('.employee-row');
+            let visibleCount = 0;
+
+            rows.forEach(function(row) {
+                const name = row.getAttribute('data-emp-name') || '';
+                const code = row.getAttribute('data-emp-code') || '';
+                const designation = row.getAttribute('data-designation') || '';
+
+                if (!q || name.includes(q) || code.includes(q) || designation.includes(q)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (q) {
+                filterCountBadge.classList.remove('d-none');
+                visibleCountSpan.textContent = visibleCount;
+            } else {
+                filterCountBadge.classList.add('d-none');
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    // APPLY TO SELECTED EMPLOYEES
+    // ─────────────────────────────────────────────
+    btnApplySelected.addEventListener('click', function() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        if (checked.length === 0) {
+            alert('Please select at least one employee using the checkboxes.');
+            return;
+        }
+        document.getElementById('modalSelectedCount').textContent = checked.length;
+        document.getElementById('modalSelectedHoursInput').value = '';
+        document.getElementById('modalSelectedError').classList.add('d-none');
+        applySelectedModal.show();
+    });
+
+    document.getElementById('modalConfirmApplySelected').addEventListener('click', function() {
+        const inputField = document.getElementById('modalSelectedHoursInput');
+        const valStr = inputField.value.trim();
+        const val = parseFloat(valStr);
+
+        if (valStr === '' || isNaN(val) || val < 0 || val > 744) {
+            document.getElementById('modalSelectedError').classList.remove('d-none');
+            return;
+        }
+
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        checked.forEach(function(cb) {
+            const empId = cb.getAttribute('data-emp-id');
+            const hourInput = document.getElementById('input_hours_' + empId);
+            if (hourInput && !hourInput.disabled) {
+                hourInput.value = val;
+                hourInput.classList.remove('is-invalid');
+                hourInput.classList.add('is-modified');
+            }
+        });
+
+        recalculateGrandTotal();
+        applySelectedModal.hide();
+        showAlert('info', `Applied ${val} hours to ${checked.length} selected employee(s). Click "Save Monthly Hours" to persist your changes.`);
+    });
+
+    // ─────────────────────────────────────────────
+    // APPLY TO ALL EMPLOYEES
+    // ─────────────────────────────────────────────
+    btnApplyAll.addEventListener('click', function() {
+        document.getElementById('modalAllHoursInput').value = '';
+        document.getElementById('modalAllError').classList.add('d-none');
+        applyAllModal.show();
+    });
+
+    document.getElementById('modalConfirmApplyAll').addEventListener('click', function() {
+        const inputField = document.getElementById('modalAllHoursInput');
+        const valStr = inputField.value.trim();
+        const val = parseFloat(valStr);
+
+        if (valStr === '' || isNaN(val) || val < 0 || val > 744) {
+            document.getElementById('modalAllError').classList.remove('d-none');
+            return;
+        }
+
+        let updatedCount = 0;
+        hourInputs.forEach(function(input) {
+            if (!input.disabled) {
+                input.value = val;
+                input.classList.remove('is-invalid');
+                input.classList.add('is-modified');
+                updatedCount++;
+            }
+        });
+
+        recalculateGrandTotal();
+        applyAllModal.hide();
+        showAlert('warning', `Applied ${val} hours to all ${updatedCount} unlocked employees. Be sure to click "Save Monthly Hours" to commit.`);
+    });
+
+    // ─────────────────────────────────────────────
+    // CLEAR / RESET
+    // ─────────────────────────────────────────────
+    btnClear.addEventListener('click', function() {
+        clearConfirmModal.show();
+    });
+
+    document.getElementById('modalConfirmClear').addEventListener('click', function() {
+        hourInputs.forEach(function(input) {
+            if (!input.disabled) {
+                const initial = input.getAttribute('data-initial') || '';
+                input.value = initial;
+                input.classList.remove('is-modified');
+                input.classList.remove('is-invalid');
+            }
+        });
+        recalculateGrandTotal();
+        clearConfirmModal.hide();
+        showAlert('secondary', 'Reset all inputs to their previously saved values.');
+    });
+
+    // ─────────────────────────────────────────────
+    // SAVE MONTHLY HOURS (AJAX)
+    // ─────────────────────────────────────────────
+    btnSaveMonthlyHours.addEventListener('click', function() {
+        // First client-side validation
+        let hasErrors = false;
+        const entries = {};
+
+        hourInputs.forEach(function(input) {
+            if (input.disabled) return;
+            const empId = input.getAttribute('data-emp-id');
+            const valStr = input.value.trim();
+
+            if (valStr === '') return; // Leave empty if not specified
+
+            const val = parseFloat(valStr);
+            if (isNaN(val) || val < 0 || val > 744) {
+                input.classList.add('is-invalid');
+                hasErrors = true;
+            } else {
+                input.classList.remove('is-invalid');
+                entries[empId] = valStr;
+            }
+        });
+
+        if (hasErrors) {
+            showAlert('danger', 'Please fix the highlighted invalid hours values (must be between 0 and 744).');
+            return;
+        }
+
+        // Lock button & show spinner to prevent duplicate submissions
+        btnSaveMonthlyHours.disabled = true;
+        saveSpinner.classList.remove('d-none');
+        saveIcon.classList.add('d-none');
+
+        const selectedMonth = document.getElementById('filterMonth').value;
+        const selectedYear = document.getElementById('filterYear').value;
+        const selectedDept = document.getElementById('filterDepartment')?.value || '';
+        const searchQuery = document.getElementById('employeeSearchInput')?.value || '';
+        const saveUrl = "{% url 'workhours_mark' %}";
+        const currentCsrf = getCsrfToken();
+
+        fetch(saveUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': currentCsrf,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                month: selectedMonth,
+                year: selectedYear,
+                department: selectedDept,
+                q: searchQuery,
+                entries: entries
+            })
+        })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type') || '';
+            let data = null;
+
+            if (contentType.includes('application/json')) {
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    console.error('Failed to parse JSON response:', parseErr);
+                }
+            }
+
+            // Check if request was redirected to login (session timeout)
+            if (response.redirected && response.url.includes('/login')) {
+                throw new Error('Your session has expired. Please refresh the page and log in again.');
+            }
+
+            if (!response.ok) {
+                let errorMsg = '';
+                if (data && data.error) {
+                    errorMsg = data.error;
+                } else if (response.status === 401) {
+                    errorMsg = 'Your session has expired. Please refresh the page and log in again.';
+                } else if (response.status === 403) {
+                    errorMsg = 'Permission denied or CSRF session expired. Please refresh the page and try again.';
+                } else if (response.status === 404) {
+                    errorMsg = 'Save endpoint was not found (404). Please contact support.';
+                } else if (response.status >= 500) {
+                    errorMsg = `Server error (${response.status}) while saving work hours. Please check server logs or try again.`;
+                } else {
+                    errorMsg = `Failed to save monthly hours (HTTP ${response.status}).`;
+                }
+                throw new Error(errorMsg);
+            }
+
+            if (!data) {
+                throw new Error('Server returned an unexpected non-JSON response. Please refresh the page.');
+            }
+
+            return data;
+        })
+        .then(result => {
+            btnSaveMonthlyHours.disabled = false;
+            saveSpinner.classList.add('d-none');
+            saveIcon.classList.remove('d-none');
+
+            if (result.success) {
+                showAlert('success', result.message);
+                // Update data-initial to mark inputs as cleanly saved
+                hourInputs.forEach(function(input) {
+                    input.setAttribute('data-initial', input.value.trim());
+                    input.classList.remove('is-modified');
+                });
+                if (result.grand_total_hours !== undefined) {
+                    grandTotalDisplay.textContent = result.grand_total_hours.toFixed(2).replace(/\.?0+$/, '') + ' hrs';
+                }
+            } else {
+                showAlert('danger', result.error || 'Failed to save monthly hours. Please try again.');
+            }
+        })
+        .catch(err => {
+            btnSaveMonthlyHours.disabled = false;
+            saveSpinner.classList.add('d-none');
+            saveIcon.classList.remove('d-none');
+            showAlert('danger', err.message || 'An unexpected error occurred while saving monthly work hours.');
+        });
+    });
+
+    // Initial calculation
+    recalculateGrandTotal();
+    updateSelectedCount();
+});
+</script>
+{% endblock %}
